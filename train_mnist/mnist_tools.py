@@ -14,7 +14,7 @@ n_test = 10000
 dim = 28 * 28
 
 def load_mnist(data_filename, label_filename, num):
-	images = np.zeros(num * dim, dtype=np.uint8).reshape((num, dim))
+	images = np.zeros(num * dim, dtype=np.float32).reshape((num, dim))
 	label = np.zeros(num, dtype=np.uint8).reshape((num, ))
 	with gzip.open(data_filename, "rb") as f_images, gzip.open(label_filename, "rb") as f_labels:
 		f_images.read(16)
@@ -22,7 +22,9 @@ def load_mnist(data_filename, label_filename, num):
 		for i in six.moves.range(num):
 			label[i] = ord(f_labels.read(1))
 			for j in six.moves.range(dim):
-				images[i, j] = ord(f_images.read(1))
+				image = ord(f_images.read(1)) / 255.0
+				iamge = image * 2.0 - 1.0
+				images[i, j] = image
 
 			if i % 100 == 0 or i == num - 1:
 				sys.stdout.write("\rloading images ... ({} / {})".format(i + 1, num))

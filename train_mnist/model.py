@@ -28,25 +28,25 @@ if os.path.isfile(sequence_filename):
 else:
 	config = ClassifierParams()
 	config.num_clusters = 10
-	config.weight_std = 0.01
+	config.weight_std = 0.1
 	config.weight_initializer = "HeNormal"
 	config.nonlinearity = "relu"
 	config.optimizer = "adam"
-	config.learning_rate = 0.0001
-	config.momentum = 0.1
+	config.learning_rate = 0.002
+	config.momentum = 0.9
 	config.gradient_clipping = 1
 	config.weight_decay = 0
-	config.lam = 0.1
-	config.mu = 5.0
+	config.lam = 0.2
+	config.mu = 4.0
 	config.ip = 1
 
 	model = Sequential()
 	model.add(Linear(None, 1200))
 	model.add(Activation(config.nonlinearity))
-	model.add(BatchNormalization(1200))
+	model.add(BatchNormalization(1200, use_cudnn=False))
 	model.add(Linear(None, 1200))
 	model.add(Activation(config.nonlinearity))
-	model.add(BatchNormalization(1200))
+	model.add(BatchNormalization(1200, use_cudnn=False))
 	model.add(Linear(None, config.num_clusters))
 
 	params = {
