@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
 import numpy as np
-import mnist_tools
+import emnist_tools
 
 def load_train_images():
-	return mnist_tools.load_train_images()
+	return emnist_tools.load_train_images()
 
 def load_test_images():
-	return mnist_tools.load_test_images()
+	return emnist_tools.load_test_images()
 
 def create_semisupervised(images, labels, num_labeled_data=10):
 	training_images_l = []

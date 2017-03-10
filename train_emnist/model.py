@@ -27,7 +27,7 @@ if os.path.isfile(sequence_filename):
 			raise Exception("could not load {}".format(sequence_filename))
 else:
 	config = ClassifierParams()
-	config.num_clusters = 10
+	config.num_clusters = 47
 	config.weight_std = 0.1
 	config.weight_initializer = "HeNormal"
 	config.nonlinearity = "relu"

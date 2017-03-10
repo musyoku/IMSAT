@@ -30,7 +30,7 @@ def compute_accuracy(images, labels_true):
 	probs.unchain_backward()
 	probs = imsat.to_numpy(probs)
 	labels_predict = np.argmax(probs, axis=1)
-	predict_counts = np.zeros((10, config.num_clusters), dtype=np.float32)
+	predict_counts = np.zeros((47, config.num_clusters), dtype=np.float32)
 	for i in xrange(len(images)):
 		p = probs[i]
 		label_predict = labels_predict[i]
@@ -39,27 +39,47 @@ def compute_accuracy(images, labels_true):
 
 	probs = np.transpose(predict_counts) / np.reshape(np.sum(np.transpose(predict_counts), axis=1), (config.num_clusters, 1))
 	indices = np.argmax(probs, axis=1)
-	match_count = np.zeros((10,), dtype=np.float32)
+	match_count = np.zeros((47,), dtype=np.float32)
 	for i in xrange(config.num_clusters):
 		assinged_label = indices[i]
 		match_count[assinged_label] += predict_counts[assinged_label][i]
 
 	accuracy = np.sum(match_count) / images.shape[0]
 	return predict_counts.astype(np.int), accuracy
+	
+def index_to_ascii(index):
+	if index < 10:
+		return index + 48
+	if index < 36:
+		return index + 55
+	if index < 38:
+		return index + 61
+	if index < 43:
+		return index + 62
+	if index < 43:
+		return index + 62
+	if index < 44:
+		return 110
+	if index < 45:
+		return 113
+	if index < 46:
+		return 114
+	if index < 47:
+		return 116
 
 def plot(counts, filename):
 	fig = pylab.gcf()
 	fig.set_size_inches(20, 20)
 	pylab.clf()
 	dataframe = {}
-	for label in xrange(10):
-		dataframe[label] = {}
-		for cluster in xrange(10):
-			dataframe[label][cluster] = counts[label][cluster]
+	for label in xrange(47):
+		dataframe[chr(index_to_ascii(label))] = {}
+		for cluster in xrange(47):
+			dataframe[chr(index_to_ascii(label))][cluster] = counts[label][cluster]
 
 	dataframe = pd.DataFrame(dataframe)
 	ax = sns.heatmap(dataframe, annot=False, fmt="f", linewidths=0)
-	ax.tick_params(labelsize=30) 
+	ax.tick_params(labelsize=25) 
 	plt.yticks(rotation=0)
 	plt.xlabel("ground truth")
 	plt.ylabel("cluster")
