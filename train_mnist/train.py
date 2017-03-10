@@ -30,7 +30,7 @@ def main():
 	config = imsat.config
 
 	# settings
-	max_epoch = 100
+	max_epoch = 1000
 	num_updates_per_epoch = 500
 	batchsize = 256
 
@@ -48,13 +48,12 @@ def main():
 
 		for t in xrange(num_updates_per_epoch):
 			x_u = dataset.sample_data(train_images, batchsize, binarize=False)
-			log_p = imsat.classify(x_u, apply_softmax=False)
-			p = F.softmax(log_p)
+			p = imsat.classify(x_u, apply_softmax=True)
 			hy = imsat.compute_marginal_entropy(p)
 			hy_x = F.sum(imsat.compute_entropy(p)) / batchsize
 			Rsat = -F.sum(imsat.compute_lds(x_u)) / batchsize
 
-			loss = Rsat - config.lam * (5.0 * hy - hy_x)
+			loss = Rsat - config.lam * (config.mu * hy - hy_x)
 			sum_loss += float(loss.data)
 			imsat.backprop(loss)
 
@@ -67,7 +66,6 @@ def main():
 			"loss": sum_loss / num_updates_per_epoch,
 		})
 
-		# test
 		test()
 
 if __name__ == "__main__":

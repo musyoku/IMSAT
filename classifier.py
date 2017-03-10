@@ -42,6 +42,7 @@ class Params():
 
 class ClassifierParams(Params):
 	def __init__(self):
+		self.num_clusters = 10
 		self.weight_std = 0.01
 		self.weight_initializer = "Normal"		# Normal, GlorotNormal or HeNormal
 		self.nonlinearity = "relu"
@@ -51,6 +52,7 @@ class ClassifierParams(Params):
 		self.gradient_clipping = 1
 		self.weight_decay = 0
 		self.lam = 0.1
+		self.mu = 5.0
 		self.ip = 1
 
 class Classifier():
@@ -129,8 +131,8 @@ class Classifier():
 
 	def compute_entropy(self, p):
 		if p.ndim == 2:
-			return F.sum(p * F.log(p + 1e-16), axis=1)
-		return F.sum(p * F.log(p + 1e-16))
+			return -F.sum(p * F.log(p + 1e-16), axis=1)
+		return -F.sum(p * F.log(p + 1e-16))
 
 	def compute_marginal_entropy(self, p_batch):
 		p = F.sum(p_batch, axis=0) / self.get_batchsize(p_batch)
