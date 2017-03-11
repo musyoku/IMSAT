@@ -6,8 +6,8 @@ from chainer import cuda
 sys.path.append(os.path.split(os.getcwd())[0])
 from classifier import Classifier, ClassifierParams
 from sequential import Sequential
-from sequential.layers import Linear, BatchNormalization, MinibatchDiscrimination
-from sequential.functions import Activation, dropout, gaussian_noise, softmax
+from sequential.layers import Linear, Convolution2D, BatchNormalization
+from sequential.functions import Activation
 
 # load params.json
 try:
@@ -36,18 +36,36 @@ else:
 	config.momentum = 0.9
 	config.gradient_clipping = 1
 	config.weight_decay = 0
-	config.lam = 0.2
-	config.mu = 3.0
+	config.lam = 0.3
+	config.mu = 1.0
 	config.sigma = 100.0
 	config.ip = 1
 
 	model = Sequential()
-	model.add(Linear(None, 1200))
+
+	# model.add(Linear(None, 1800))
+	# model.add(Activation(config.nonlinearity))
+	# model.add(BatchNormalization(1800, use_cudnn=False))
+	# model.add(Linear(None, 1800))
+	# model.add(Activation(config.nonlinearity))
+	# model.add(BatchNormalization(1800, use_cudnn=False))
+	# model.add(Linear(None, 1800))
+	# model.add(Activation(config.nonlinearity))
+	# model.add(BatchNormalization(1800, use_cudnn=False))
+	# model.add(Linear(None, config.num_clusters))
+
+	model.add(Convolution2D(1, 32, ksize=4, stride=2, pad=1))
 	model.add(Activation(config.nonlinearity))
-	model.add(BatchNormalization(1200, use_cudnn=False))
-	model.add(Linear(None, 1200))
+	model.add(BatchNormalization(32, use_cudnn=False))
+	model.add(Convolution2D(32, 64, ksize=4, stride=2, pad=1))
 	model.add(Activation(config.nonlinearity))
-	model.add(BatchNormalization(1200, use_cudnn=False))
+	model.add(BatchNormalization(64, use_cudnn=False))
+	model.add(Convolution2D(64, 128, ksize=3, stride=2, pad=1))
+	model.add(Activation(config.nonlinearity))
+	model.add(BatchNormalization(128, use_cudnn=False))
+	model.add(Convolution2D(128, 256, ksize=4, stride=2, pad=1))
+	model.add(Activation(config.nonlinearity))
+	model.add(BatchNormalization(256, use_cudnn=False))
 	model.add(Linear(None, config.num_clusters))
 
 	params = {

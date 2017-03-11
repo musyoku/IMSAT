@@ -6,7 +6,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from chainer import cuda
 from chainer import functions as F
-from munkres import Munkres, print_matrix
 sys.path.append(os.path.split(os.getcwd())[0])
 import dataset
 from progress import Progress
@@ -24,8 +23,6 @@ test_images, test_labels = dataset.load_test_images()
 config = imsat.config
 
 def compute_accuracy(images, labels_true):
-	images = np.asanyarray(images, dtype=np.float32)
-	labels_true = np.asanyarray(labels_true, dtype=np.int32)
 	probs = F.softmax(imsat.classify(images, test=True, apply_softmax=True))
 	probs.unchain_backward()
 	probs = imsat.to_numpy(probs)

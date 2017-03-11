@@ -14,8 +14,8 @@ n_test = 18800
 dim = 28 * 28
 
 def load_emnist(data_filename, label_filename, num):
-	images = np.zeros(num * dim, dtype=np.float32).reshape((num, dim))
-	label = np.zeros(num, dtype=np.uint8).reshape((num, ))
+	images = np.zeros((num, dim), dtype=np.float32)
+	label = np.zeros((num,), dtype=np.int32)
 	with gzip.open(data_filename, "rb") as f_images, gzip.open(label_filename, "rb") as f_labels:
 		f_images.read(16)
 		f_labels.read(8)
@@ -30,6 +30,7 @@ def load_emnist(data_filename, label_filename, num):
 				sys.stdout.write("\rloading images ... ({} / {})".format(i, num))
 				sys.stdout.flush()
 	sys.stdout.write("\n")
+	images = images.reshape((num, 1, 28, 28))
 	return images, label
 
 def load_train_images():

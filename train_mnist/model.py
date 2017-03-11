@@ -6,8 +6,8 @@ from chainer import cuda
 sys.path.append(os.path.split(os.getcwd())[0])
 from classifier import Classifier, ClassifierParams
 from sequential import Sequential
-from sequential.layers import Linear, BatchNormalization, MinibatchDiscrimination
-from sequential.functions import Activation, dropout, gaussian_noise, softmax
+from sequential.layers import Linear, BatchNormalization
+from sequential.functions import Activation
 
 # load params.json
 try:

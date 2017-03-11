@@ -47,23 +47,19 @@ def create_semisupervised(images, labels, num_labeled_data=10):
 	return training_images_l, training_labels, training_images_u
 
 def sample_labeled_data(images, labels, batchsize):
-	ndim_x = images[0].size
-	image_batch = np.zeros((batchsize, ndim_x), dtype=np.float32)
+	image_batch = np.zeros((batchsize, 28 * 28), dtype=np.float32)
 	label_id_batch = np.zeros((batchsize,), dtype=np.int32)
 	indices = np.random.choice(np.arange(len(images), dtype=np.int32), size=batchsize, replace=False)
 	for j in range(batchsize):
 		data_index = indices[j]
-		image = images[data_index].astype(np.float32)
-		image_batch[j] = image.reshape((ndim_x,))
+		image_batch[j] = images[data_index]
 		label_id_batch[j] = labels[data_index]
 	return image_batch, label_id_batch
 
 def sample_data(images, batchsize):
-	ndim_x = images[0].size
-	image_batch = np.zeros((batchsize, ndim_x), dtype=np.float32)
+	image_batch = np.zeros((batchsize, 28 * 28), dtype=np.float32)
 	indices = np.random.choice(np.arange(len(images), dtype=np.int32), size=batchsize, replace=False)
 	for j in range(batchsize):
 		data_index = indices[j]
-		image = images[data_index].astype(np.float32)
-		image_batch[j] = image.reshape((ndim_x,))
+		image_batch[j] = images[data_index]
 	return image_batch

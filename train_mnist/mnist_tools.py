@@ -14,8 +14,8 @@ n_test = 10000
 dim = 28 * 28
 
 def load_mnist(data_filename, label_filename, num):
-	images = np.zeros(num * dim, dtype=np.float32).reshape((num, dim))
-	label = np.zeros(num, dtype=np.uint8).reshape((num, ))
+	images = np.zeros((num, dim), dtype=np.float32)
+	label = np.zeros((num, ), dtype=np.int32)
 	with gzip.open(data_filename, "rb") as f_images, gzip.open(label_filename, "rb") as f_labels:
 		f_images.read(16)
 		f_labels.read(8)

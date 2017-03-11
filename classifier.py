@@ -143,8 +143,9 @@ class Classifier():
 		return F.reshape(F.sum(p * (F.log(p + 1e-16) - F.log(q + 1e-16)), axis=1), (-1, 1))
 
 	def get_unit_vector(self, v):
-		v /= (np.sqrt(np.sum(v ** 2, axis=1)).reshape((-1, 1)) + 1e-16)
-		return v
+		if v.ndim == 4:
+			return v / (np.sqrt(np.sum(v ** 2, axis=(1,2,3))).reshape((-1, 1, 1, 1)) + 1e-16)
+		return v / (np.sqrt(np.sum(v ** 2, axis=1)).reshape((-1, 1)) + 1e-16)
 
 	def compute_lds(self, x, xi=10, eps=1):
 		x = self.to_variable(x)

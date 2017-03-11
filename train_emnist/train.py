@@ -6,7 +6,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from chainer import cuda
 from chainer import functions as F
-from munkres import Munkres, print_matrix
 sys.path.append(os.path.split(os.getcwd())[0])
 import dataset
 from progress import Progress
@@ -24,18 +23,21 @@ test_images, test_labels = dataset.load_test_images()
 config = imsat.config
 
 def compute_accuracy(images, labels_true):
-	images = np.asanyarray(images, dtype=np.float32)
-	labels_true = np.asanyarray(labels_true, dtype=np.int32)
-	probs = F.softmax(imsat.classify(images, test=True, apply_softmax=True))
-	probs.unchain_backward()
-	probs = imsat.to_numpy(probs)
-	labels_predict = np.argmax(probs, axis=1)
 	predict_counts = np.zeros((47, config.num_clusters), dtype=np.float32)
-	for i in xrange(len(images)):
-		p = probs[i]
-		label_predict = labels_predict[i]
-		label_true = labels_true[i]
-		predict_counts[label_true][label_predict] += 1
+	# to avoid cudaErrorMemoryAllocation: out of memory
+	num_data_in_segment = len(images) // 20
+	for n in xrange(20):
+		_images = images[n * num_data_in_segment:(n + 1) * num_data_in_segment]
+		_labelss_true = labels_true[n * num_data_in_segment:(n + 1) * num_data_in_segment]
+		probs = F.softmax(imsat.classify(_images, test=True, apply_softmax=True))
+		probs.unchain_backward()
+		probs = imsat.to_numpy(probs)
+		labels_predict = np.argmax(probs, axis=1)
+		for i in xrange(len(_images)):
+			p = probs[i]
+			label_predict = labels_predict[i]
+			label_true = _labelss_true[i]
+			predict_counts[label_true][label_predict] += 1
 
 	probs = np.transpose(predict_counts) / np.reshape(np.sum(np.transpose(predict_counts), axis=1), (config.num_clusters, 1))
 	indices = np.argmax(probs, axis=1)
