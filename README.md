@@ -19,6 +19,8 @@ python train.py
 
 train data (60,000)
 
+accuracy: 98.4%
+
 ```
 5889   18    0    2    0    1    3    3    7    0
    1    3   13   27   14 6538    0  145    0    1
@@ -33,6 +35,8 @@ train data (60,000)
 ```
 
 test data (10,000)
+
+accuracy: 98.4%
 
 ```
  979    0    1    0    0    0    0    0    0    0
