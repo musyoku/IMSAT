@@ -29,7 +29,7 @@ else:
 	config = ClassifierParams()
 	config.num_clusters = 10
 	config.weight_std = 0.1
-	config.weight_initializer = "HeNormal"
+	config.weight_initializer = "Normal"
 	config.nonlinearity = "relu"
 	config.optimizer = "adam"
 	config.learning_rate = 0.002
@@ -37,7 +37,7 @@ else:
 	config.gradient_clipping = 1
 	config.weight_decay = 0
 	config.lam = 0.2
-	config.mu = 3.0
+	config.mu = 4.0
 	config.sigma = 100.0
 	config.ip = 1
 
