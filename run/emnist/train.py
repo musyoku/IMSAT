@@ -1,155 +1,143 @@
+from __future__ import division
+from __future__ import print_function
+import argparse, chainer, time, sys, copy
 import numpy as np
-import os, sys, time, math, pylab
-import seaborn as sns
-sns.set(font_scale=2.5)
-import pandas as pd
-import matplotlib.pyplot as plt
+import chainer.functions as F
 from chainer import cuda
-from chainer import functions as F
-sys.path.append(os.path.split(os.getcwd())[0])
-import dataset
-from progress import Progress
-from model import imsat, params
-from args import args
+from model import Model
+from imsat.optim import Optimizer, GradientClipping
+from imsat.utils import printr, clear_console
+from imsat.dataset import Dataset
+import emnist_tools as emnist
 
-# load MNIST
-train_images, train_labels = dataset.load_train_images()
-train_images_l, train_labels_l, train_images_u = dataset.create_semisupervised(train_images, train_labels, num_labeled_data=args.num_labeled_data)
-print "labeled: ", len(train_images_l)
-print "unlabeled: ", len(train_images_u)
-test_images, test_labels = dataset.load_test_images()
+def compute_accuracy(model, images, labels_true, num_clusters):
+	with chainer.using_config("train", False) and chainer.no_backprop_mode():
+		split_images = np.split(images, 50, axis=0)
+		split_labels_true = np.split(labels_true, 50)
+		predict_counts = np.zeros((47, num_clusters), dtype=np.float32)
+		xp = model.xp
 
-# config
-config = imsat.config
+		for image_batch, label_true_batch in zip(split_images, split_labels_true):
+			if xp is cuda.cupy:
+				image_batch = cuda.to_gpu(image_batch)
+			probs = F.softmax(model.classify(image_batch, apply_softmax=True))
+			labels_predict = xp.argmax(probs.data, axis=1)
+			for i in range(len(image_batch)):
+				p = probs[i]
+				label_predict = int(labels_predict[i])
+				label_true = label_true_batch[i]
+				predict_counts[label_true][label_predict] += 1
 
-def compute_accuracy(images, labels_true):
-	predict_counts = np.zeros((47, config.num_clusters), dtype=np.float32)
-	# to avoid cudaErrorMemoryAllocation: out of memory
-	num_data_in_segment = len(images) // 20
-	for n in xrange(20):
-		_images = images[n * num_data_in_segment:(n + 1) * num_data_in_segment]
-		_labelss_true = labels_true[n * num_data_in_segment:(n + 1) * num_data_in_segment]
-		probs = F.softmax(imsat.classify(_images, test=True, apply_softmax=True))
-		probs.unchain_backward()
-		probs = imsat.to_numpy(probs)
-		labels_predict = np.argmax(probs, axis=1)
-		for i in xrange(len(_images)):
-			p = probs[i]
-			label_predict = labels_predict[i]
-			label_true = _labelss_true[i]
-			predict_counts[label_true][label_predict] += 1
+		probs = np.transpose(predict_counts) / np.reshape(np.sum(np.transpose(predict_counts), axis=1), (num_clusters, 1))
+		indices = np.argmax(probs, axis=1)
+		match_count = np.zeros((47,), dtype=np.float32)
+		for i in range(num_clusters):
+			assinged_label = indices[i]
+			match_count[assinged_label] += predict_counts[assinged_label][i]
 
-	probs = np.transpose(predict_counts) / np.reshape(np.sum(np.transpose(predict_counts), axis=1), (config.num_clusters, 1))
-	indices = np.argmax(probs, axis=1)
-	match_count = np.zeros((47,), dtype=np.float32)
-	for i in xrange(config.num_clusters):
-		assinged_label = indices[i]
-		match_count[assinged_label] += predict_counts[assinged_label][i]
-
-	accuracy = np.sum(match_count) / images.shape[0]
-	return predict_counts.astype(np.int), accuracy
-	
-def index_to_ascii(index):
-	if index < 10:
-		return index + 48
-	if index < 36:
-		return index + 55
-	if index < 38:
-		return index + 61
-	if index < 43:
-		return index + 62
-	if index < 43:
-		return index + 62
-	if index < 44:
-		return 110
-	if index < 45:
-		return 113
-	if index < 46:
-		return 114
-	if index < 47:
-		return 116
-
-def plot(counts, filename):
-	fig = pylab.gcf()
-	fig.set_size_inches(20, 20)
-	pylab.clf()
-	dataframe = {}
-	for label in xrange(47):
-		dataframe[chr(index_to_ascii(label))] = {}
-		for cluster in xrange(47):
-			dataframe[chr(index_to_ascii(label))][cluster] = counts[label][cluster]
-
-	dataframe = pd.DataFrame(dataframe)
-	ax = sns.heatmap(dataframe, annot=False, fmt="f", linewidths=0)
-	ax.tick_params(labelsize=25) 
-	plt.yticks(rotation=0)
-	plt.xlabel("ground truth")
-	plt.ylabel("cluster")
-	heatmap = ax.get_figure()
-	heatmap.savefig("{}/{}.png".format(args.model_dir, filename))
+		accuracy = np.sum(match_count) / images.shape[0]
+		return predict_counts.astype(np.int), accuracy
 
 def main():
-	# settings
-	max_epoch = 1000
-	num_updates_per_epoch = 500
-	batchsize_u = 256
-	batchsize_l = min(100, args.num_labeled_data)
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--batchsize", "-b", type=int, default=64)
+	parser.add_argument("--total-epochs", "-e", type=int, default=50)
+	parser.add_argument("--gpu-device", "-g", type=int, default=0)
+	parser.add_argument("--grad-clip", "-gc", type=float, default=5)
+	parser.add_argument("--learning-rate", "-lr", type=float, default=0.01)
+	parser.add_argument("--lr-decay", "-lr-decay", type=float, default=0.98)
+	parser.add_argument("--momentum", "-mo", type=float, default=0.9)
+	parser.add_argument("--num-clusters", "-cluster", type=int, default=47)
+	parser.add_argument("--ndim-h", "-ndim-h", type=int, default=1200)
+	parser.add_argument("--lam", "-lam", type=float, default=0.2)
+	parser.add_argument("--mu", "-mu", type=float, default=4.0)
+	parser.add_argument("--Ip", "-Ip", type=int, default=1)
+	parser.add_argument("--optimizer", "-opt", type=str, default="msgd")
+	parser.add_argument("--seed", type=int, default=0)
+	parser.add_argument("--model", "-m", type=str, default="model.hdf5")
+	args = parser.parse_args()
 
-	# seed
 	np.random.seed(args.seed)
-	if args.gpu_device != -1:
-		cuda.cupy.random.seed(args.seed)
 
-	# training
-	progress = Progress()
-	for epoch in xrange(1, max_epoch + 1):
-		progress.start_epoch(epoch, max_epoch)
+	model = Model(num_clusters=args.num_clusters, ndim_h=args.ndim_h)
+	model.load(args.model)
+
+	images_train, labels_train = emnist.load_train_images()
+	images_test, labels_test = emnist.load_test_images()
+
+	dataset = Dataset(train=(images_train, labels_train), test=(images_test, labels_test))
+	total_iterations_train = len(images_train) // args.batchsize
+
+	# optimizers
+	optimizer = Optimizer(args.optimizer, args.learning_rate, args.momentum)
+	optimizer.setup(model)
+	if args.grad_clip > 0:
+		optimizer.add_hook(GradientClipping(args.grad_clip))
+
+	using_gpu = False
+	if args.gpu_device >= 0:
+		cuda.get_device(args.gpu_device).use()
+		model.to_gpu()
+		using_gpu = True
+	xp = model.xp
+
+	training_start_time = time.time()
+	for epoch in range(args.total_epochs):
+
 		sum_loss = 0
 		sum_entropy = 0
 		sum_conditional_entropy = 0
 		sum_rsat = 0
 
-		for t in xrange(num_updates_per_epoch):
-			x_u = dataset.sample_data(train_images_u, batchsize_u)
-			p = imsat.classify(x_u, apply_softmax=True)
-			hy = imsat.compute_marginal_entropy(p)
-			hy_x = F.sum(imsat.compute_entropy(p)) / batchsize_u
-			Rsat = -F.sum(imsat.compute_lds(x_u)) / batchsize_u
+		epoch_start_time = time.time()
+		dataset.shuffle()
 
-			# semi-supervised
-			loss_semisupervised = 0
-			if args.num_labeled_data > 0:
-				x_l, t_l = dataset.sample_labeled_data(train_images_l, train_labels_l, batchsize_l)
-				log_p = imsat.classify(x_l, apply_softmax=False)
-				loss_semisupervised = F.softmax_cross_entropy(log_p, imsat.to_variable(t_l))
+		# training
+		for itr in range(total_iterations_train):
+			# update model parameters
+			with chainer.using_config("train", True):
+				# sample minibatch
+				x_u, _ = dataset.sample_minibatch(args.batchsize, gpu=using_gpu)
+				
+				p = model.classify(x_u, apply_softmax=True)
+				hy = model.compute_marginal_entropy(p)
+				hy_x = F.sum(model.compute_entropy(p)) / args.batchsize
+				Rsat = -F.sum(model.compute_lds(x_u)) / args.batchsize
 
-			loss = Rsat - config.lam * (config.mu * hy - hy_x) + config.sigma * loss_semisupervised
-			imsat.backprop(loss)
+				loss = Rsat - args.lam * (args.mu * hy - hy_x)
 
-			sum_loss += float(loss.data)
-			sum_entropy += float(hy.data)
-			sum_conditional_entropy += float(hy_x.data)
-			sum_rsat += float(Rsat.data)
+				model.cleargrads()
+				loss.backward()
+				optimizer.update()
 
-			if t % 10 == 0:
-				progress.show(t, num_updates_per_epoch, {})
+				sum_loss += float(loss.data)
+				sum_entropy += float(hy_x.data)
+				sum_conditional_entropy += float(hy_x.data)
+				sum_rsat += float(Rsat.data)
 
-		imsat.save(args.model_dir)
+			printr("Training ... {:3.0f}% ({}/{})".format((itr + 1) / total_iterations_train * 100, itr + 1, total_iterations_train))
 
-		counts_train, accuracy_train = compute_accuracy(train_images, train_labels)
-		counts_test, accuracy_test = compute_accuracy(test_images, test_labels)
-		progress.show(num_updates_per_epoch, num_updates_per_epoch, {
-			"loss": sum_loss / num_updates_per_epoch,
-			"hy": sum_entropy / num_updates_per_epoch,
-			"hy_x": sum_conditional_entropy / num_updates_per_epoch,
-			"Rsat": sum_rsat / num_updates_per_epoch,
-			"acc_test": accuracy_test,
-			"acc_train": accuracy_test,
-		})
-		print counts_train
-		print counts_test
-		plot(counts_train, "train")
-		plot(counts_test, "test")
+		model.save(args.model)
+		
+		counts_train, accuracy_train = compute_accuracy(model, images_train, labels_train, args.num_clusters)
+		counts_test, accuracy_test = compute_accuracy(model, images_test, labels_test, args.num_clusters)
+
+		clear_console()
+
+		print(counts_train)
+		print(counts_test)
+		print("Epoch {} done in {} sec - loss {:.5g} - hy={:.5g} - hy_x={:.5g} - Rsat={:.5g} - acc: train={:.2f}%, test={:.2f}% - lr {:.5g} - total {} min".format(
+			epoch + 1, int(time.time() - epoch_start_time), 
+			sum_loss / total_iterations_train, 
+			sum_entropy / total_iterations_train, 
+			sum_conditional_entropy / total_iterations_train, 
+			sum_rsat / total_iterations_train, 
+			accuracy_train * 100,
+			accuracy_test * 100,
+			optimizer.get_learning_rate(),
+			int((time.time() - training_start_time) // 60)))
+
+		optimizer.decrease_learning_rate(args.lr_decay, 1e-5)
 
 
 if __name__ == "__main__":

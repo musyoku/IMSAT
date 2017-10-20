@@ -12,10 +12,10 @@ class Model(nn.Module):
 
 		super(Model, self).__init__(
 			nn.Linear(ndim_x, ndim_h),
-			nn.ReLU(),
+			nn.Swish(),
 			nn.BatchNormalization(ndim_h),
 			nn.Linear(ndim_h, ndim_h),
-			nn.ReLU(),
+			nn.Swish(),
 			nn.BatchNormalization(ndim_h),
 			nn.Linear(ndim_h, num_clusters),
 		)
