@@ -97,15 +97,17 @@ class Chain(chainer.Chain):
 	def add_sequence(self, sequence, name=None):
 		assert isinstance(sequence, sequential.Sequential)
 		self.build_sequence(sequence)
-		self.add_sequence_with_name(sequence, name)
 		if name is None:
+			name = "link"
 			assert hasattr(self, "sequence") == False
 			self.sequence = sequence
 		else:
 			assert hasattr(self, name) == False
 			setattr(self, name, sequence)
+		self.add_sequence_with_name(sequence, name)
 
 	def add_sequence_with_name(self, sequence, name="link"):
+		assert name is not None
 		assert isinstance(sequence, sequential.Sequential)
 		self.build_sequence(sequence)
 		for i, link in enumerate(sequence.links):
@@ -114,6 +116,8 @@ class Chain(chainer.Chain):
 			elif isinstance(link, links.Gaussian):
 				self.add_link("{}_{}_ln_var".format(name, i), link.layer_ln_var)
 				self.add_link("{}_{}_mean".format(name, i), link.layer_mean)
+			elif isinstance(link, links.PixelShuffler2D):
+				self.add_link("{}_{}".format(name, i), link.conv)
 			elif isinstance(link, links.MinibatchDiscrimination):
 				self.add_link("{}_{}".format(name, i), link.T)
 			elif isinstance(link, links.Merge):

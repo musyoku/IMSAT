@@ -135,8 +135,7 @@ class Classifier():
 		return -F.sum(p * F.log(p + 1e-16))
 
 	def compute_marginal_entropy(self, p_batch):
-		p = F.sum(p_batch, axis=0) / self.get_batchsize(p_batch)
-		return self.compute_entropy(p)
+		return self.compute_entropy(F.mean(p_batch, axis=0))
 
 	def compute_kld(self, p, q):
 		assert self.get_batchsize(p) == self.get_batchsize(q)
