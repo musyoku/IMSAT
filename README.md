@@ -5,7 +5,7 @@
 
 ### Requirements
 
-- Chainer
+- Chainer 2
 
 ## MNIST
 

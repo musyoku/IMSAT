@@ -124,8 +124,6 @@ def main():
 
 		clear_console()
 
-		print(counts_train)
-		print(counts_test)
 		print("Epoch {} done in {} sec - loss {:.5g} - hy={:.5g} - hy_x={:.5g} - Rsat={:.5g} - acc: train={:.2f}%, test={:.2f}% - lr {:.5g} - total {} min".format(
 			epoch + 1, int(time.time() - epoch_start_time), 
 			sum_loss / total_iterations_train, 
